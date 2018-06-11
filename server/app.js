@@ -5,6 +5,7 @@ const { ObjectID } = require('mongodb');
 
 const { Todo } = require('./models/Todo');
 const { User } = require('./models/User');
+const { authenticate } = require('./middleware/authenticate');
 
 const app = express();
 
@@ -97,6 +98,10 @@ app.post('/users', async (req, res) => {
   } catch (error) {
     res.status(400).send(error);
   }
+});
+
+app.get('/users/me', authenticate, async (req, res) => {
+  res.send(req.user);
 });
 
 module.exports = app;
