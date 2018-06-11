@@ -71,3 +71,16 @@ describe('POST /todos', () => {
     expect(todos.length).toBe(0);
   });
 });
+
+describe('GET /todos', () => {
+  const todos = [{ text: 'Todo text 1' }, { text: 'Todo text 2' }];
+  beforeEach(async () => {
+    await Todo.insertMany(todos);
+  });
+  test('should get all todos', async () => {
+    const response = await request(app).get('/todos');
+    expect(response.statusCode).toBe(200);
+    expect(response.body.todos[0]).toMatchObject(todos[0]);
+    expect(response.body.todos[1]).toMatchObject(todos[1]);
+  });
+});
