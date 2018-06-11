@@ -87,4 +87,16 @@ app.patch('/todos/:id', async (req, res) => {
   }
 });
 
+app.post('/users', async (req, res) => {
+  try {
+    const body = _.pick(req.body, ['email', 'password']);
+    const user = new User(body);
+    await user.save();
+    const token = await user.generateAuthToken();
+    res.header('x-auth', token).send(user);
+  } catch (error) {
+    res.status(400).send(error);
+  }
+});
+
 module.exports = app;
