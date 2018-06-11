@@ -17,4 +17,12 @@ app.post('/todos', async (req, res) => {
   }
 });
 
+app.get('/todos', async (req, res) => {
+  try {
+    const todos = await Todo.find();
+    res.send({ todos });
+  } catch (error) {
+    res.status(400).send(error);
+  }
+});
 module.exports = app;
