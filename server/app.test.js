@@ -144,3 +144,44 @@ describe('DELETE /todos/:id', () => {
     expect(response.statusCode).toBe(404);
   });
 });
+
+describe('PATCH /todos/:id', () => {
+  const objId1 = new ObjectID().toHexString();
+  const objId2 = new ObjectID().toHexString();
+  const todos = [
+    { _id: objId1, text: 'Todo text 1', completed: true, completedAt: 123 },
+    { _id: objId2, text: 'Todo text 2' },
+  ];
+  beforeEach(async () => {
+    await Todo.insertMany(todos);
+  });
+
+  test('should update the todo', async () => {
+    const updateObject = { text: 'new text', completed: true };
+    const response = await request(app)
+      .patch(`/todos/${objId2}`)
+      .send(updateObject);
+
+    const result = await Todo.findById(objId2);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.todo).toMatchObject(updateObject);
+    expect(result).toMatchObject(updateObject);
+    expect(typeof result.completedAt).toBe('number');
+  });
+
+  test('should clear completedAt when todo is not completed', async () => {
+    const resultObject = {
+      text: todos[0].text,
+      completed: false,
+      completedAt: null,
+    };
+    const response = await request(app)
+      .patch(`/todos/${objId1}`)
+      .send({ completed: false });
+
+    const result = await Todo.findById(objId1);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.todo).toMatchObject(resultObject);
+    expect(result).toMatchObject(resultObject);
+  });
+});
