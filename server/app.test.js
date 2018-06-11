@@ -114,3 +114,33 @@ describe('GET /todos/:id', () => {
     expect(response.statusCode).toBe(404);
   });
 });
+
+describe('DELETE /todos/:id', () => {
+  const objId1 = new ObjectID().toHexString();
+  const objId2 = new ObjectID().toHexString();
+  const todos = [
+    { _id: objId1, text: 'Todo text 1' },
+    { _id: objId2, text: 'Todo text 2' },
+  ];
+  beforeEach(async () => {
+    await Todo.insertMany(todos);
+  });
+  test('should /todo/:id delete and return a valid object', async () => {
+    const response = await request(app).delete(`/todos/${objId1}`);
+    const ret = await Todo.findById(objId1);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.todo).toMatchObject(todos[0]);
+    expect(ret).toBeNull();
+  });
+
+  test('should /todo/:id return 404 on invalid object Id', async () => {
+    const response = await request(app).delete(`/todos/123`);
+    expect(response.statusCode).toBe(404);
+  });
+
+  test('should /todo/:id return 404 on missing id', async () => {
+    const someId = new ObjectID().toHexString();
+    const response = await request(app).delete(`/todos/${someId}`);
+    expect(response.statusCode).toBe(404);
+  });
+});
