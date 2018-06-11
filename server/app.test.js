@@ -1,5 +1,7 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
+const { ObjectID } = require('mongodb');
+
 const MongodbMemoryServer = require('mongodb-memory-server').default;
 
 const app = require('./app');
@@ -82,5 +84,33 @@ describe('GET /todos', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body.todos[0]).toMatchObject(todos[0]);
     expect(response.body.todos[1]).toMatchObject(todos[1]);
+  });
+});
+
+describe('GET /todos/:id', () => {
+  const objId1 = new ObjectID().toHexString();
+  const objId2 = new ObjectID().toHexString();
+  const todos = [
+    { _id: objId1, text: 'Todo text 1' },
+    { _id: objId2, text: 'Todo text 2' },
+  ];
+  beforeEach(async () => {
+    await Todo.insertMany(todos);
+  });
+  test('should /todo/:id return a valid object', async () => {
+    const response = await request(app).get(`/todos/${objId1}`);
+    expect(response.statusCode).toBe(200);
+    expect(response.body.todo).toMatchObject(todos[0]);
+  });
+
+  test('should /todo/:id return 404 on invalid object Id', async () => {
+    const response = await request(app).get(`/todos/123`);
+    expect(response.statusCode).toBe(404);
+  });
+
+  test('should /todo/:id return 404 on missing id', async () => {
+    const someId = new ObjectID().toHexString();
+    const response = await request(app).get(`/todos/${someId}`);
+    expect(response.statusCode).toBe(404);
   });
 });
