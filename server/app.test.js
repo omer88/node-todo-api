@@ -236,3 +236,15 @@ describe('POST /users/login', () => {
     expect(dbUser.tokens).toHaveLength(1);
   });
 });
+
+describe('DELETE /users/me/token', () => {
+  test('should remove auth token', async () => {
+    const token = users[0].tokens[0].token;
+    const response = await request(app)
+      .delete('/users/me/token')
+      .set('x-auth', token);
+    const dbUser = await User.findById(users[0]._id);
+    expect(response.statusCode).toBe(200);
+    expect(dbUser.tokens).toHaveLength(0);
+  });
+});
