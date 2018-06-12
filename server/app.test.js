@@ -1,12 +1,15 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const { ObjectID } = require('mongodb');
+const _ = require('lodash');
 
 const MongodbMemoryServer = require('mongodb-memory-server').default;
 
 const app = require('./app');
 const { Todo } = require('./models/Todo');
 const { User } = require('./models/User');
+
+const { todos, populateTodos, users, populateUsers } = require('./tests/seed');
 
 // May require additional time for downloading MongoDB binaries
 jasmine.DEFAULT_TIMEOUT_INTERVAL = 60000;
@@ -30,7 +33,8 @@ afterAll(() => {
 });
 
 beforeEach(async () => {
-  await Todo.remove({});
+  await populateUsers();
+  await populateTodos();
 });
 
 describe('POST /todos', () => {
@@ -58,7 +62,7 @@ describe('POST /todos', () => {
       .post('/todos')
       .send(task);
 
-    const todos = await Todo.find();
+    const todos = await Todo.find(task);
     expect(response.statusCode).toBe(200);
     expect(response.body).toMatchObject(task);
     expect(todos[0].text).toBe(text);
@@ -70,15 +74,11 @@ describe('POST /todos', () => {
       .send({});
     const todos = await Todo.find();
     expect(response.statusCode).toBe(400);
-    expect(todos.length).toBe(0);
+    expect(todos.length).toBe(2);
   });
 });
 
 describe('GET /todos', () => {
-  const todos = [{ text: 'Todo text 1' }, { text: 'Todo text 2' }];
-  beforeEach(async () => {
-    await Todo.insertMany(todos);
-  });
   test('should get all todos', async () => {
     const response = await request(app).get('/todos');
     expect(response.statusCode).toBe(200);
@@ -88,17 +88,8 @@ describe('GET /todos', () => {
 });
 
 describe('GET /todos/:id', () => {
-  const objId1 = new ObjectID().toHexString();
-  const objId2 = new ObjectID().toHexString();
-  const todos = [
-    { _id: objId1, text: 'Todo text 1' },
-    { _id: objId2, text: 'Todo text 2' },
-  ];
-  beforeEach(async () => {
-    await Todo.insertMany(todos);
-  });
   test('should /todo/:id return a valid object', async () => {
-    const response = await request(app).get(`/todos/${objId1}`);
+    const response = await request(app).get(`/todos/${todos[0]._id}`);
     expect(response.statusCode).toBe(200);
     expect(response.body.todo).toMatchObject(todos[0]);
   });
@@ -116,18 +107,9 @@ describe('GET /todos/:id', () => {
 });
 
 describe('DELETE /todos/:id', () => {
-  const objId1 = new ObjectID().toHexString();
-  const objId2 = new ObjectID().toHexString();
-  const todos = [
-    { _id: objId1, text: 'Todo text 1' },
-    { _id: objId2, text: 'Todo text 2' },
-  ];
-  beforeEach(async () => {
-    await Todo.insertMany(todos);
-  });
   test('should /todo/:id delete and return a valid object', async () => {
-    const response = await request(app).delete(`/todos/${objId1}`);
-    const ret = await Todo.findById(objId1);
+    const response = await request(app).delete(`/todos/${todos[0]._id}`);
+    const ret = await Todo.findById(todos[0]._id);
     expect(response.statusCode).toBe(200);
     expect(response.body.todo).toMatchObject(todos[0]);
     expect(ret).toBeNull();
@@ -146,23 +128,13 @@ describe('DELETE /todos/:id', () => {
 });
 
 describe('PATCH /todos/:id', () => {
-  const objId1 = new ObjectID().toHexString();
-  const objId2 = new ObjectID().toHexString();
-  const todos = [
-    { _id: objId1, text: 'Todo text 1', completed: true, completedAt: 123 },
-    { _id: objId2, text: 'Todo text 2' },
-  ];
-  beforeEach(async () => {
-    await Todo.insertMany(todos);
-  });
-
   test('should update the todo', async () => {
     const updateObject = { text: 'new text', completed: true };
     const response = await request(app)
-      .patch(`/todos/${objId2}`)
+      .patch(`/todos/${todos[1]._id}`)
       .send(updateObject);
 
-    const result = await Todo.findById(objId2);
+    const result = await Todo.findById(todos[1]._id);
     expect(response.statusCode).toBe(200);
     expect(response.body.todo).toMatchObject(updateObject);
     expect(result).toMatchObject(updateObject);
@@ -176,12 +148,64 @@ describe('PATCH /todos/:id', () => {
       completedAt: null,
     };
     const response = await request(app)
-      .patch(`/todos/${objId1}`)
+      .patch(`/todos/${todos[0]._id}`)
       .send({ completed: false });
 
-    const result = await Todo.findById(objId1);
+    const result = await Todo.findById(todos[0]._id);
     expect(response.statusCode).toBe(200);
     expect(response.body.todo).toMatchObject(resultObject);
     expect(result).toMatchObject(resultObject);
+  });
+});
+
+describe('GET /users/me', () => {
+  test('should return user if authenticated', async () => {
+    const token = users[0].tokens[0].token;
+    const response = await request(app)
+      .get('/users/me')
+      .set('x-auth', token);
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toEqual(_.pick(users[0], ['_id', 'email']));
+  });
+
+  test('should return 401 if not authenticated', async () => {
+    const response = await request(app).get('/users/me');
+    expect(response.statusCode).toBe(401);
+    expect(response.body).toEqual({});
+  });
+});
+
+describe('POST /users', () => {
+  test('should create a user', async () => {
+    const email = 'user1@example.com';
+    const password = 'password';
+    const response = await request(app)
+      .post('/users')
+      .send({ email, password });
+    const dbUser = await User.findOne({ email });
+    expect(response.statusCode).toBe(200);
+    expect(response.header['x-auth']).not.toBeNull();
+    expect(response.body._id).not.toBeNull();
+    expect(response.body.email).toBe(email);
+    expect(dbUser).not.toBeNull();
+    expect(dbUser.password).not.toBeNull();
+    expect(dbUser.password).not.toBe(password);
+  });
+
+  test('should return validation error if request is invalid', async () => {
+    const email = 'wrongEmail';
+    const password = 'password';
+    const response = await request(app)
+      .post('/users')
+      .send({ email, password });
+    expect(response.statusCode).toBe(400);
+  });
+
+  test('should not create user if email is in use', async () => {
+    const password = 'password';
+    const response2 = await request(app)
+      .post('/users')
+      .send({ email: users[0].email, password });
+    expect(response2.statusCode).toBe(400);
   });
 });
