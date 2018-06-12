@@ -104,4 +104,18 @@ app.get('/users/me', authenticate, async (req, res) => {
   res.send(req.user);
 });
 
+app.post('/users/login', async (req, res) => {
+  try {
+    const body = _.pick(req.body, ['email', 'password']);
+    debugger;
+    const user = await User.findByCredentials(body.email, body.password);
+    if (!user) {
+      return res.status(401).send();
+    }
+    const token = await user.generateAuthToken();
+    res.header('x-auth', token).send(user);
+  } catch (error) {
+    res.status(400).send();
+  }
+});
 module.exports = app;
