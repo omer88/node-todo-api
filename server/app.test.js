@@ -47,7 +47,7 @@ describe('POST /todos', () => {
       .expect(response => {
         expect(response.body).toMatchObject(task);
       })
-      .end((err, res) => {
+      .end(err => {
         if (err) {
           throw done(err);
         }
@@ -74,7 +74,7 @@ describe('POST /todos', () => {
       .send({});
     const todos = await Todo.find();
     expect(response.statusCode).toBe(400);
-    expect(todos.length).toBe(2);
+    expect(todos).toHaveLength(2);
   });
 });
 
@@ -95,7 +95,7 @@ describe('GET /todos/:id', () => {
   });
 
   test('should /todo/:id return 404 on invalid object Id', async () => {
-    const response = await request(app).get(`/todos/123`);
+    const response = await request(app).get('/todos/123');
     expect(response.statusCode).toBe(404);
   });
 
@@ -116,7 +116,7 @@ describe('DELETE /todos/:id', () => {
   });
 
   test('should /todo/:id return 404 on invalid object Id', async () => {
-    const response = await request(app).delete(`/todos/123`);
+    const response = await request(app).delete('/todos/123');
     expect(response.statusCode).toBe(404);
   });
 
