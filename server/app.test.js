@@ -203,9 +203,36 @@ describe('POST /users', () => {
 
   test('should not create user if email is in use', async () => {
     const password = 'password';
-    const response2 = await request(app)
+    const response = await request(app)
       .post('/users')
       .send({ email: users[0].email, password });
-    expect(response2.statusCode).toBe(400);
+    expect(response.statusCode).toBe(400);
+  });
+});
+
+describe('POST /users/login', () => {
+  test('should login user and return auth token', async () => {
+    const email = users[0].email;
+    const password = users[0].password;
+    const response = await request(app)
+      .post('/users/login')
+      .send({ email, password });
+    const dbUser = await User.findOne({ email });
+    expect(response.header['x-auth']).not.toBeNull();
+    expect(response.body.email).toBe(email);
+    expect(dbUser.tokens).toHaveLength(2);
+    expect(dbUser.tokens[1].token).toBe(response.header['x-auth']);
+  });
+
+  test('should reject invalid login', async () => {
+    const email = users[0].email;
+    const password = 'wrongPassword';
+    const response = await request(app)
+      .post('/users/login')
+      .send({ email, password });
+    const dbUser = await User.findOne({ email });
+    expect(response.statusCode).toBe(400);
+    expect(response.header['x-auth']).toBeUndefined();
+    expect(dbUser.tokens).toHaveLength(1);
   });
 });
