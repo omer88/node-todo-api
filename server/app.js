@@ -10,9 +10,9 @@ const { authenticate } = require('./middleware/authenticate');
 const app = express();
 
 app.use(bodyParser.json());
-app.post('/todos', async (req, res) => {
+app.post('/todos', authenticate, async (req, res) => {
   try {
-    const todo = new Todo({ text: req.body.text });
+    const todo = new Todo({ text: req.body.text, _creator: req.user._id });
     const doc = await todo.save();
     res.send(doc);
   } catch (error) {
@@ -20,22 +20,25 @@ app.post('/todos', async (req, res) => {
   }
 });
 
-app.get('/todos', async (req, res) => {
+app.get('/todos', authenticate, async (req, res) => {
   try {
-    const todos = await Todo.find();
+    const todos = await Todo.find({ _creator: req.user._id });
     res.send({ todos });
   } catch (error) {
     res.status(400).send(error);
   }
 });
 
-app.get('/todos/:id', async (req, res) => {
+app.get('/todos/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     if (!ObjectID.isValid(id)) {
       return res.status(404).send();
     }
-    const todo = await Todo.findById(id);
+    const todo = await Todo.findOne({
+      _id: id,
+      _creator: req.user._id,
+    });
     if (!todo) {
       return res.status(404).send();
     }
@@ -45,13 +48,16 @@ app.get('/todos/:id', async (req, res) => {
   }
 });
 
-app.delete('/todos/:id', async (req, res) => {
+app.delete('/todos/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     if (!ObjectID.isValid(id)) {
       return res.status(404).send();
     }
-    const todo = await Todo.findByIdAndRemove(id);
+    const todo = await Todo.findOneAndRemove({
+      _id: id,
+      _creator: req.user._id,
+    });
     if (!todo) {
       return res.status(404).send();
     }
@@ -61,7 +67,7 @@ app.delete('/todos/:id', async (req, res) => {
   }
 });
 
-app.patch('/todos/:id', async (req, res) => {
+app.patch('/todos/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const body = _.pick(req.body, ['text', 'completed']);
@@ -74,8 +80,8 @@ app.patch('/todos/:id', async (req, res) => {
       body.completed = false;
       body.completedAt = null;
     }
-    const todo = await Todo.findByIdAndUpdate(
-      id,
+    const todo = await Todo.findOneAndUpdate(
+      { _id: id, _creator: req.user._id },
       { $set: body },
       { new: true }
     );
@@ -123,4 +129,5 @@ app.delete('/users/me/token', authenticate, async (req, res) => {
     res.status(400).send();
   }
 });
+
 module.exports = app;

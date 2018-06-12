@@ -42,6 +42,7 @@ describe('POST /todos', () => {
     const task = { text: 'Task 1' };
     request(app)
       .post('/todos')
+      .set('x-auth', users[0].tokens[0].token)
       .send(task)
       .expect(200)
       .expect(response => {
@@ -60,6 +61,7 @@ describe('POST /todos', () => {
     const task = { text };
     const response = await request(app)
       .post('/todos')
+      .set('x-auth', users[0].tokens[0].token)
       .send(task);
 
     const todos = await Todo.find(task);
@@ -71,6 +73,7 @@ describe('POST /todos', () => {
   test('should not create todo  with invalid body data', async () => {
     const response = await request(app)
       .post('/todos')
+      .set('x-auth', users[0].tokens[0].token)
       .send({});
     const todos = await Todo.find();
     expect(response.statusCode).toBe(400);
@@ -80,49 +83,79 @@ describe('POST /todos', () => {
 
 describe('GET /todos', () => {
   test('should get all todos', async () => {
-    const response = await request(app).get('/todos');
+    const response = await request(app)
+      .get('/todos')
+      .set('x-auth', users[0].tokens[0].token);
     expect(response.statusCode).toBe(200);
     expect(response.body.todos[0]).toMatchObject(todos[0]);
-    expect(response.body.todos[1]).toMatchObject(todos[1]);
+    expect(response.body.todos).toHaveLength(1);
   });
 });
 
 describe('GET /todos/:id', () => {
   test('should /todo/:id return a valid object', async () => {
-    const response = await request(app).get(`/todos/${todos[0]._id}`);
+    const response = await request(app)
+      .get(`/todos/${todos[0]._id}`)
+      .set('x-auth', users[0].tokens[0].token);
     expect(response.statusCode).toBe(200);
     expect(response.body.todo).toMatchObject(todos[0]);
   });
 
+  test('should /todo/:id not return an object of other user', async () => {
+    const response = await request(app)
+      .get(`/todos/${todos[0]._id}`)
+      .set('x-auth', users[1].tokens[0].token);
+    expect(response.statusCode).toBe(404);
+  });
+
   test('should /todo/:id return 404 on invalid object Id', async () => {
-    const response = await request(app).get('/todos/123');
+    const response = await request(app)
+      .get('/todos/123')
+      .set('x-auth', users[0].tokens[0].token);
     expect(response.statusCode).toBe(404);
   });
 
   test('should /todo/:id return 404 on missing id', async () => {
     const someId = new ObjectID().toHexString();
-    const response = await request(app).get(`/todos/${someId}`);
+    const response = await request(app)
+      .get(`/todos/${someId}`)
+      .set('x-auth', users[0].tokens[0].token);
     expect(response.statusCode).toBe(404);
   });
 });
 
 describe('DELETE /todos/:id', () => {
   test('should /todo/:id delete and return a valid object', async () => {
-    const response = await request(app).delete(`/todos/${todos[0]._id}`);
+    const response = await request(app)
+      .delete(`/todos/${todos[0]._id}`)
+      .set('x-auth', users[0].tokens[0].token);
     const ret = await Todo.findById(todos[0]._id);
     expect(response.statusCode).toBe(200);
     expect(response.body.todo).toMatchObject(todos[0]);
     expect(ret).toBeNull();
   });
 
+  test('should /todo/:id not delete a valid object of other user', async () => {
+    const response = await request(app)
+      .delete(`/todos/${todos[0]._id}`)
+      .set('x-auth', users[1].tokens[0].token);
+    const ret = await Todo.findById(todos[0]._id);
+    expect(response.statusCode).toBe(404);
+    expect(ret).not.toBeNull();
+  });
+
   test('should /todo/:id return 404 on invalid object Id', async () => {
-    const response = await request(app).delete('/todos/123');
+    const response = await request(app)
+      .delete('/todos/123')
+      .set('x-auth', users[0].tokens[0].token);
     expect(response.statusCode).toBe(404);
   });
 
   test('should /todo/:id return 404 on missing id', async () => {
     const someId = new ObjectID().toHexString();
-    const response = await request(app).delete(`/todos/${someId}`);
+    const response = await request(app)
+      .delete(`/todos/${someId}`)
+      .set('x-auth', users[0].tokens[0].token);
     expect(response.statusCode).toBe(404);
   });
 });
@@ -132,6 +165,7 @@ describe('PATCH /todos/:id', () => {
     const updateObject = { text: 'new text', completed: true };
     const response = await request(app)
       .patch(`/todos/${todos[1]._id}`)
+      .set('x-auth', users[1].tokens[0].token)
       .send(updateObject);
 
     const result = await Todo.findById(todos[1]._id);
@@ -139,6 +173,18 @@ describe('PATCH /todos/:id', () => {
     expect(response.body.todo).toMatchObject(updateObject);
     expect(result).toMatchObject(updateObject);
     expect(typeof result.completedAt).toBe('number');
+  });
+
+  test('should not update a todo of other user', async () => {
+    const updateObject = { text: 'new text', completed: true };
+    const response = await request(app)
+      .patch(`/todos/${todos[1]._id}`)
+      .set('x-auth', users[0].tokens[0].token)
+      .send(updateObject);
+
+    const result = await Todo.findById(todos[1]._id);
+    expect(response.statusCode).toBe(404);
+    expect(result.completedAt).toBeNull();
   });
 
   test('should clear completedAt when todo is not completed', async () => {
@@ -149,6 +195,7 @@ describe('PATCH /todos/:id', () => {
     };
     const response = await request(app)
       .patch(`/todos/${todos[0]._id}`)
+      .set('x-auth', users[0].tokens[0].token)
       .send({ completed: false });
 
     const result = await Todo.findById(todos[0]._id);
