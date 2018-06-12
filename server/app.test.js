@@ -132,7 +132,7 @@ describe('DELETE /todos/:id', () => {
     const ret = await Todo.findById(todos[0]._id);
     expect(response.statusCode).toBe(200);
     expect(response.body.todo).toMatchObject(todos[0]);
-    expect(ret).toBeNull();
+    expect(ret).toBeFalsy();
   });
 
   test('should /todo/:id not delete a valid object of other user', async () => {
@@ -141,7 +141,7 @@ describe('DELETE /todos/:id', () => {
       .set('x-auth', users[1].tokens[0].token);
     const ret = await Todo.findById(todos[0]._id);
     expect(response.statusCode).toBe(404);
-    expect(ret).not.toBeNull();
+    expect(ret).toBeTruthy();
   });
 
   test('should /todo/:id return 404 on invalid object Id', async () => {
@@ -184,7 +184,7 @@ describe('PATCH /todos/:id', () => {
 
     const result = await Todo.findById(todos[1]._id);
     expect(response.statusCode).toBe(404);
-    expect(result.completedAt).toBeNull();
+    expect(result.completedAt).toBeFalsy();
   });
 
   test('should clear completedAt when todo is not completed', async () => {
@@ -231,11 +231,11 @@ describe('POST /users', () => {
       .send({ email, password });
     const dbUser = await User.findOne({ email });
     expect(response.statusCode).toBe(200);
-    expect(response.header['x-auth']).not.toBeNull();
-    expect(response.body._id).not.toBeNull();
+    expect(response.header['x-auth']).toBeTruthy();
+    expect(response.body._id).toBeTruthy();
     expect(response.body.email).toBe(email);
-    expect(dbUser).not.toBeNull();
-    expect(dbUser.password).not.toBeNull();
+    expect(dbUser).toBeTruthy();
+    expect(dbUser.password).toBeTruthy();
     expect(dbUser.password).not.toBe(password);
   });
 
@@ -265,7 +265,7 @@ describe('POST /users/login', () => {
       .post('/users/login')
       .send({ email, password });
     const dbUser = await User.findOne({ email });
-    expect(response.header['x-auth']).not.toBeNull();
+    expect(response.header['x-auth']).toBeTruthy();
     expect(response.body.email).toBe(email);
     expect(dbUser.tokens).toHaveLength(2);
     expect(dbUser.tokens[1].token).toBe(response.header['x-auth']);
@@ -279,7 +279,7 @@ describe('POST /users/login', () => {
       .send({ email, password });
     const dbUser = await User.findOne({ email });
     expect(response.statusCode).toBe(400);
-    expect(response.header['x-auth']).toBeUndefined();
+    expect(response.header['x-auth']).toBeFalsy();
     expect(dbUser.tokens).toHaveLength(1);
   });
 });
